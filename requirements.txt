@@ -1,0 +1,5 @@
+lxml
+requests
+cssselect
+BeautifulSoup4
+scraperwiki
