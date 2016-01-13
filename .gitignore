@@ -55,3 +55,10 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# Las volas de vim
+*.swp
+*.swo
+
+# La base de datos
+*.sqlite
