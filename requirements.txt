@@ -4,3 +4,4 @@ BeautifulSoup4
 
 lxml==3.4.4
 cssselect==0.9.1
+unicodecsv==0.9.0

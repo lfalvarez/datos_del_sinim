@@ -2,6 +2,7 @@
 import requests
 from bs4 import BeautifulSoup
 import scraperwiki
+import unicodecsv
 
 
 
@@ -10,15 +11,24 @@ ids =["11201","05602","13502","08314","03302","01107","10202","04103","09201","0
 
 
 def process_municipality(id_sinim, id=1, concejal_counter=1):
-    page = requests.post('http://datos.sinim.gov.cl/ficha_comunal.php', data = {"municipio":id_sinim})
+    page = requests.post('http://datos.sinim.gov.cl/ficha_comunal.php', data = {"municipio": id_sinim})
     tree = BeautifulSoup(page.content, 'lxml')
     alcalde= tree.select('.nombre_alcalde > h3')[0].text
+    partido_pacto_alcalde = tree.select('.nombre_alcalde > h4')[1].text.split(' - ')
+    partido_alcalde = partido_pacto_alcalde[0]
+    pacto_alcalde = partido_pacto_alcalde[1]
     web_muni = tree.select('.info_municipio > dl > dd')[6].text
     nombre_muni = tree.select('.tit_comuna')[0].text
+    scraperwiki.sqlite.save(unique_keys=['id'], data={"id": concejal_counter,
+                                                      "nombre": alcalde,
+                                                      "id_muni": id,
+                                                      "partido": partido_alcalde,
+                                                      "posicion": "alcalde",
+                                                      "pacto": pacto_alcalde}, table_name="personas")
+    concejal_counter += 1
     scraperwiki.sqlite.save(unique_keys=['id'], data={"id": id,
                                                       "id_sinim":id_sinim,
                                                       "muni": nombre_muni,
-                                                      "alcalde": alcalde,
                                                       "web_muni": web_muni})
 
     concejales = tree.select('#tab-autoridades .file')
@@ -31,10 +41,42 @@ def process_municipality(id_sinim, id=1, concejal_counter=1):
                                                           "nombre": nombrec,
                                                           "id_muni": id,
                                                           "partido": partidoc,
-                                                          "pacto": pactoc}, table_name="concejales")
+                                                          "posicion": "concejal",
+                                                          "pacto": pactoc}, table_name="personas")
         concejal_counter += 1
     id += 1
     return concejal_counter, id
+
+
+def process_casen():
+    f = open('casen_2014.csv', 'r')
+    r = unicodecsv.reader(f, encoding='utf-8')
+    comunas_names = r.next()
+    datos_comuna = {}
+    for i in range(3, len(comunas_names)):
+        comuna = comunas_names[i].upper()
+        result = scraperwiki.sqlite.select('id from data where muni="%s"' % (comuna, ))
+        id_ = result[0].get('id')
+        datos_comuna[i] = {'comuna_id': id_, 'comuna_name': comuna, 'dato': []}
+    dato_counter = 0
+    for datos in r:
+        dato_counter += 1
+        for j in range(3, len(comunas_names)):
+            datos_comuna[j]['dato'].append({
+                'id': dato_counter,
+                'dato_name': datos[1].strip(),
+                'value': datos[j]
+            })
+    dato_counter = 0
+    for a in datos_comuna:
+        for b in datos_comuna[a]['dato']:
+            final = {'id': dato_counter,
+                     'id_muni': datos_comuna[a]['comuna_id'],
+                     'dato_name': b['dato_name'],
+                     'value': b['value']
+            }
+            dato_counter += 1
+            scraperwiki.sqlite.save(unique_keys=['id'], data=final, table_name='datos_comuna')
 
 
 
@@ -42,3 +84,4 @@ counter = 1
 concejal_counter = 1
 for id_sinim in ids:
     concejal_counter, counter = process_municipality(id_sinim, id=counter, concejal_counter=concejal_counter)
+process_casen()
